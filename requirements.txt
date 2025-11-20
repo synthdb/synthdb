@@ -1,0 +1,10 @@
+# requirements.txt
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+pymysql==1.1.0
+faker==20.1.0
+click==8.1.7
+rich==13.7.0
+tqdm==4.66.1
+pydantic==2.5.0
+python-dotenv==1.0.0

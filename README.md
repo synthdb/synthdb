@@ -1,149 +1,51 @@
-# SynthDB
+SynthDB
 
-> **Production-realistic synthetic data. Zero real information.**
+The Statistical Synthetic Data Engine for Modern Engineering Teams.
 
-SynthDB generates test data that matches your production database's statistical distributions and relationships—without copying a single real record.
+SynthDB is an open-source infrastructure tool that generates statistically accurate, referentially intact synthetic data for PostgreSQL and MySQL. It solves the "Cold Start" problem for testing environments by cloning the shape of your production data without touching the PII (Personally Identifiable Information).
 
-## The Problem
+The Problem
 
-Current tools like Faker.js generate **random** data:
-- Names don't match locations ("Rajesh Smith" from "Tokyo")
-- Phone numbers don't match countries (New York zip code with Indian area code)
-- Ages are uniformly distributed (unrealistic: equal 5-year-olds and 95-year-olds)
-- No referential integrity (Orders for users that don't exist)
+Developers need realistic data to test features.
 
-**Result**: Your tests pass with fake data but fail in production.
+Random Data (Faker.js) breaks business logic.
 
-## The Solution
+Production Data violates GDPR/DPDP/HIPAA.
 
-SynthDB **learns** your database's patterns:
-- **Statistical profiling**: Ages follow a normal distribution (μ=32, σ=8)
-- **Smart linking**: Cities match zip codes, area codes match states
-- **Referential integrity**: Foreign keys point to valid records
-- **Topological sorting**: Inserts data in the correct order (no constraint violations)
+The Solution: Statistical Reflection
 
-## Status
+SynthDB connects to your production schema and performs a 3-step analysis:
 
-⚠️ **Early Development** - Not ready for production use.
+Graph Topology Analysis: Builds a Directed Acyclic Graph (DAG) of your Foreign Keys to determine the mathematically correct insertion order.
 
-Currently building:
-- [x] Project structure
-- [ ] Schema parser (MySQL/PostgreSQL)
-- [ ] Topological dependency resolver
-- [ ] Basic data generation (Faker.js level)
-- [ ] Statistical profiling engine
-- [ ] Smart relationship linking
+Statistical Profiling: Analyzes distribution curves (Bell curves, Power laws) of your numerical data.
 
-**Expected MVP**: January 2025
+Synthesis: Streams millions of rows that respect these constraints.
 
-## Planned Features
+Installation
 
-### Free (Open Source)
-- ✅ MySQL & PostgreSQL support
-- ✅ Basic random data generation
-- ✅ Topological sorting
-- ✅ CLI interface
-- ⚠️ Limited to 10,000 rows
+pip install synthdb
 
-### Pro (Paid - Planned)
-- 🔒 Statistical profiling (learns distributions)
-- 🔒 Smart linking (city ↔ zip code matching)
-- 🔒 All databases (Oracle, SQL Server, MongoDB)
-- 🔒 Unlimited rows
-- 🔒 Docker images
-- 🔒 API access
 
-## Quick Start (Coming Soon)
-```bash
-# Install
-npm install -g synthdb
+Usage
 
-# Connect to your database
-synthdb profile mysql://user:pass@localhost/prod_db
+# 1. Introspect your database and generate a blueprint
+synthdb introspect --db-url "postgresql://user:pass@localhost:5432/prod_db"
 
-# Generate synthetic data
-synthdb generate --rows 100000 --output test_db.sql
-```
+# 2. Generate synthetic data
+synthdb generate --blueprint ./blueprint.json --count 10000
 
-## Roadmap
 
-### Phase 1: MVP (Weeks 1-8)
-- Schema introspection
-- Topological sorting
-- Basic Faker-style generation
+Architecture
 
-### Phase 2: Intelligence (Weeks 9-16)
-- Statistical distribution detection
-- Smart relationship linking
-- Data type inference
+SynthDB is built on:
 
-### Phase 3: Scale (Weeks 17-24)
-- Multi-database support
-- Performance optimization
-- Enterprise features
+NetworkX for dependency graph resolution.
 
-## Why This Matters
+SQLAlchemy for schema reflection.
 
-### GDPR/HIPAA/DPDP Compliance
-Using real production data in test environments is:
-- ❌ Illegal (€20M fines under GDPR)
-- ❌ Dangerous (data breaches from test systems)
-- ❌ Slow (anonymization is hard)
+Python 3.9+ for core logic.
 
-SynthDB generates data that's:
-- ✅ Legally safe (synthetic = not personal data)
-- ✅ Statistically identical (tests behave like production)
-- ✅ Fast (no manual anonymization)
+License
 
-## Comparison
-
-| Feature | Faker.js | Tonic.ai | SynthDB |
-|---------|----------|----------|---------|
-| Price | Free | $50k+/year | Free + $99-$499/mo |
-| Statistical accuracy | ❌ | ✅ | ✅ |
-| Referential integrity | ❌ | ✅ | ✅ |
-| Self-hosted | ✅ | ❌ | ✅ |
-| Open source | ✅ | ❌ | ✅ (core) |
-
-## Contributing
-
-🚧 **Not accepting contributions yet** - Core architecture is still being defined.
-
-Follow the repo to be notified when we're ready for contributors!
-
-## Technical Details
-
-**Core Algorithm**:
-1. **Schema Analysis**: Parse DB schema, extract tables, columns, foreign keys
-2. **Dependency Graph**: Build DAG of table relationships
-3. **Topological Sort**: Determine safe insertion order
-4. **Statistical Profiling**: Analyze column distributions (mean, std dev, percentiles)
-5. **Smart Generation**: Generate data matching learned patterns
-
-**Stack** (Planned):
-- Language: Python (using `pandas`, `scipy`, `sqlalchemy`)
-- CLI: `click` or `typer`
-- Databases: `psycopg2`, `pymysql`, `cx_Oracle`
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
-
-Core engine is open source. Premium features (statistical profiling, enterprise databases) are proprietary.
-
-## Links
-
-- **Website**: Coming soon
-- **Docs**: Coming soon
-- **Twitter**: Coming soon
-- **Discord**: Coming soon
-
-## Star History
-
-⭐ **Star this repo** to follow development and show support!
-
----
-
-**Built by [@abhinavraj2004](https://github.com/abhinavraj2004)**
-
-*Inspired by the limitations of Faker.js and the high cost of Tonic.ai*
+MIT

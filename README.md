@@ -1,182 +1,153 @@
-# SynthDB
+# SynthDB 🦀
 
-> Production-grade synthetic data generator for PostgreSQL  
-> Zero-config. Single binary. Referentially intact.
+> The Universal Database Seeder.  
+> Production-grade synthetic data. Zero config. Context-aware.
 
+[![Crates.io](https://img.shields.io/crates/v/synthdb.svg)](https://crates.io/crates/synthdb)
 [![Built with Rust](https://img.shields.io/badge/built_with-Rust-d33833.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Open Collective](https://img.shields.io/badge/Sponsor-Open%20Collective-1f87ff.svg)](https://opencollective.com/synthdb)
 
-SynthDB generates realistic, referentially-consistent synthetic data for PostgreSQL from your existing schema — fast, local, and privacy-preserving.
+SynthDB reads your PostgreSQL schema and synthesizes realistic, relationally consistent data — with no config, no templates, and minimal fuss. It infers semantics from column names and types, preserves foreign keys, and emits performant INSERTs (or, in future, writes directly).
 
-Why use SynthDB?
-- Populate staging or CI environments with realistic data without copying production.
-- Preserve foreign-key relationships automatically.
-- Sample real distributions from existing schemas to produce believable values.
-- Run entirely locally — no data leaves your environment.
+Why SynthDB?
+- Zero-config: sensible heuristics that just work.
+- Context-aware: column semantics (emails, names, entities) produce believable values.
+- Referential integrity: inserts in topological order; no broken FK references.
+- Privacy-first: run locally; no telemetry or data exfiltration by default.
 
-Quick Start
+Quick start
 
-1. Export your schema (no rows):
+1) Install
 ```bash
-pg_dump -h prod-db.example -U user -d my_app -s > schema.sql
+# From crates.io
+cargo install synthdb
 ```
 
-2. Create a target database and load the schema:
+2) Prepare a target DB (schema only)
 ```bash
+# Export schema from prod (no data)
+pg_dump -h prod-db.example -U user -d my_app -s > schema.sql
+
+# Create a staging DB and load schema
 createdb my_staging_db
 psql -d my_staging_db < schema.sql
 ```
 
-3. Generate synthetic data:
+3) Generate synthetic data
 ```bash
 synthdb clone \
   --url "postgres://user:pass@localhost:5432/my_staging_db" \
-  --rows 5000 \
+  --rows 1000 \
   --output seed.sql
 ```
 
-4. Apply the generated data:
+4) Apply the data
 ```bash
 psql -d my_staging_db < seed.sql
 ```
 
-Result: a fully-seeded staging environment with realistic users, orders, items, etc. — all referentially intact.
+Key features
 
-Highlights
-- Zero-config: sensible defaults for most schemas.
-- Referential integrity: builds a dependency DAG and inserts tables in safe order.
-- Smart heuristics: infers types and semantic meanings from column names (emails, phones, SKUs, timestamps).
-- Value sampling: optionally sample from existing distinct values to preserve realistic distributions.
-- Fast: implemented in Rust for native performance.
-- Privacy-first: works locally — no telemetry or data exfiltration by default.
+- Universal Heuristic Engine
+  - Semantic awareness: uses column names + types to infer generators (first_name → realistic email/local-part).
+  - Dynamic entity recognition: creates plausible entity names (e.g., "Kirlin Airport").
+  - Precision-aware: respects NUMERIC/DECIMAL scales, VARCHAR limits and other constraints.
 
-Features
-- Automatic topological ordering based on foreign keys
-- Column "Vibe Engine" for semantic data generation (email, phone, sku, status, timestamps)
-- Optional sampling from existing distinct values to mimic real distributions
-- Single-binary distribution; cross-platform builds via Cargo
-- Pluggable generator heuristics for custom column behaviors
+- Referential integrity
+  - Detects FKs and topologically sorts tables for safe insertion order.
+  - Tracks generated primary keys to guarantee referential correctness.
 
-Install
+- Rich type support
+  - JSONB, ARRAY, UUID, INET, MACADDR, CIDR and more.
+  - Media/file hints (e.g., .mp4 for video, .pdf for docs).
+  - Network data (MAC, IPv4/IPv6) and code-like patterns (SKU, flight_code).
 
-From source (Cargo):
-```bash
-git clone https://github.com/synthdb/synthdb.git
-cd synthdb
-cargo install --path .
-```
-
-Pre-built binaries may be published on the Releases page.
-
-Usage (CLI)
-
-Common command: clone (inspect schema and generate INSERT statements)
-```bash
-synthdb clone \
-  --url "postgres://user:pass@localhost:5432/my_staging_db" \
-  --rows 10000 \
-  --output seed.sql \
-  --sample-percent 20 \
-  --concurrency 4
-```
-
-Key flags
-- --url (required) — Postgres connection string for the target schema to inspect
-- --rows — total rows to generate per primary table (defaults vary by mode)
-- --output — path to write SQL INSERTs (stdout if omitted)
-- --sample-percent — percent of distinct values to sample from existing columns (0–100)
-- --concurrency — number of worker threads for generation and sampling
-- --schema — target schema name (defaults to public)
-- --dry-run — analyze schema and print plan without generating data
-- --help — see all options
+- Sampling & distributions
+  - Optionally sample DISTINCT values from your schema to preserve categorical distributions.
+  - Hybrid mode: mix sampled real-world values with synthetic generators.
 
 How it works (high level)
-1. Introspect: read tables, columns, types, and constraints via pg_catalog and information_schema.
-2. Build DAG: create a dependency graph from foreign keys and topologically sort tables.
-3. Profile (optional): sample distinct values and distributions from columns.
-4. Generate: use heuristics and distributions to synthesize values per column.
-5. Emit: produce INSERT statements in an order that satisfies foreign keys.
+1. Introspect: reads schema metadata (pg_catalog / information_schema).
+2. Analyze: infers column semantics and constraints.
+3. Build DAG: maps FK relationships and topologically sorts tables.
+4. Profile (optional): samples distinct values and builds distributions.
+5. Generate: produces rows according to heuristics and sampled distributions.
+6. Emit: writes INSERT statements in a FK-safe order.
 
-Column heuristics (Vibe Engine)
-SynthDB uses column names and types to infer generators:
-- email → realistic emails (local + domain)
-- phone → formatted phone numbers
-- sku, code → uppercase alphanumeric with dashes
-- status → small enumerations (active, pending, failed, etc.)
+Common usage / CLI
+
+Basic clone
+```bash
+synthdb clone --url "postgres://user:pass@localhost:5432/my_db" --rows 5000 --output seed.sql
+```
+
+Useful flags
+- --url (required): Postgres connection string to introspect
+- --rows: number of rows per primary table (defaults sensible per table)
+- --output: path to write SQL INSERTs (stdout if omitted)
+- --sample-percent: percent of distinct values to sample from existing columns (0–100)
+- --concurrency: worker threads for generation/sampling
+- --schema: target schema (defaults to public)
+- --dry-run: print plan & DAG without generating data
+- --help: show all options
+
+Example: faster generation with sampling
+```bash
+synthdb clone \
+  --url "postgres://user:pass@localhost:5432/my_db" \
+  --rows 20000 \
+  --sample-percent 10 \
+  --concurrency 8 \
+  --output /tmp/seed.sql
+```
+
+Column heuristics (examples)
+- first_name, last_name → human names
+- email, contact_email → realistic email addresses
+- phone, mobile → locale-aware formatted phone numbers
+- sku, product_code → uppercase alphanumeric patterns with dashes
 - created_at, updated_at → time-decayed timestamps
+- wallet_balance NUMERIC(10,2) → financial values respecting scale
+- airport_facility_name, device_name → entity generators with contextual suffixes
 
-Heuristics are pluggable — see Contributing for how to add or tune generators.
-
-Sampling real distributions
-When enabled:
-- SELECT DISTINCT (with safe limits) to collect candidate values
-- Build categorical distributions and sample accordingly
-This preserves realistic proportions for categorical columns (e.g., product_category, country).
-
-Performance notes
-- Generation is CPU-bound. Increase --concurrency for faster runs.
-- Sampling large distinct sets can be heavy on the DB; use --sample-percent to control load.
-
-Limitations (v0.1)
-- PostgreSQL only (MySQL/SQLite planned for v0.2)
-- Requires an existing schema (does not create tables)
-- Produces SQL INSERT statements only (no truncation or migrations)
-- Very large sampling may be slow or memory-intensive — use limiting flags
-
-Security & Privacy
-- SynthDB is designed for local use. It does not exfiltrate database contents.
-- Prefer role-limited DB users for introspection when running against production-like hosts.
-
-Troubleshooting
-- Permission denied during introspection: ensure the DB user can read pg_catalog and information_schema.
-- Out of memory during sampling: reduce --sample-percent or run on a larger machine.
-- Referential cycles: if your schema has cycles without deferred constraints, run --dry-run to inspect the plan and handle cycles manually.
-
-Examples
-- CI-friendly: generate small dataset and output to stdout
-```bash
-synthdb clone --url "$CI_DATABASE_URL" --rows 1000 > /tmp/ci_seed.sql
-```
-
-- Generate without sampling real values:
-```bash
-synthdb clone --url "postgres://..." --rows 2000 --sample-percent 0
-```
-
-Development & Contributing
-Contributions welcome! Typical workflow:
-```bash
-git checkout -b feature/my-feature
-# implement and test
-git commit -m "Add feature"
-git push origin feature/my-feature
-# open a pull request
-```
-
-Guidelines
-- Write tests for new generators and sampling logic
-- Keep CLI flags backward-compatible
-- Document heuristics and new flags in README
-
-Suggested repository files to add (if you want me to generate them):
-- CONTRIBUTING.md (contribution guidelines, testing, code style)
-- PR_TEMPLATE.md (pull request template)
-- CODE_OF_CONDUCT.md
+Advanced notes
+- Large schemas: sampling many distinct values is DB-intensive; use --sample-percent or increase DB resources.
+- Cyclic references: schemas with strong cycles may need manual handling (see --dry-run to inspect plan).
+- Performance: generation is CPU-bound; increase --concurrency for multi-core machines.
 
 Roadmap
 - v0.2: MySQL & SQLite support
-- Native write mode: write directly to a target DB (in addition to SQL files)
-- GUI and VSCode extension for schema previews
-- More generator plugins and community templates
+- Native write-mode: write directly into DB (skip SQL file)
+- GUI / VSCode extension for schema preview & interactive generation
+- Plugin system for custom heuristics and community templates
+
+Contributing
+We welcome contributions — especially Rustaceans! Suggested steps:
+1. Fork the repo: https://github.com/synthdb/synthdb
+2. Create a feature branch: git checkout -b feature/my-feature
+3. Implement, test, and document changes
+4. Open a pull request
+
+Helpful additions I can generate for you:
+- CONTRIBUTING.md
+- PR_TEMPLATE.md
+- CODE_OF_CONDUCT.md
 
 Support & Sponsorship
 If SynthDB saves you time, consider sponsoring development:
 - Open Collective: https://opencollective.com/synthdb
 
 License
-Distributed under the MIT License — see LICENSE.
+Distributed under the MIT License. See LICENSE in this repository.
 
 Contact
-- Issues & PRs: https://github.com/synthdb/synthdb/issues
+- Repo & issues: https://github.com/synthdb/synthdb
 - Sponsorship: https://opencollective.com/synthdb
+
+If you'd like, I can also:
+- add a CONTRIBUTING.md and PR template and open a branch with those files,
+- add a brief example of a YAML config schema and a sample config file,
+or
+- produce a short "Troubleshooting" section with common errors and fixes.
+Tell me which and I will add those files next.

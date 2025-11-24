@@ -28,6 +28,7 @@ pub struct Table {
 }
 
 pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
+    // 1. Get all tables
     let tables = sqlx::query!(
         "SELECT table_name FROM information_schema.tables 
          WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
@@ -41,7 +42,8 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
         let t_name = t.table_name.unwrap();
         println!("   ...analyzing table: {}", t_name);
 
-        // We now fetch numeric_precision and numeric_scale
+        // 2. Get columns with precision details
+        // We look at udt_name to detect Arrays (usually starts with _)
         let cols_raw = sqlx::query!(
             "SELECT column_name, data_type, is_nullable, numeric_precision, numeric_scale, udt_name
              FROM information_schema.columns 
@@ -57,9 +59,9 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
         for c in cols_raw {
             let col_name = c.column_name.unwrap();
             let mut data_type = c.data_type.unwrap();
-            let udt_name = c.udt_name.unwrap_or_default(); // Detect arrays via udt_name
+            let udt_name = c.udt_name.unwrap_or_default(); 
             
-            // Detect Array Types (Postgres specific)
+            // Detect Postgres Arrays (e.g. _text, _int4)
             if udt_name.starts_with('_') {
                 data_type = "ARRAY".to_string();
             }
@@ -68,8 +70,9 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
             let numeric_precision = c.numeric_precision;
             let numeric_scale = c.numeric_scale;
 
-            // SAMPLER: Only sample if it makes sense
+            // 3. THE SAMPLER: Only sample if it makes sense
             let mut distinct_values = Vec::new();
+            // Avoid sampling IDs or massive text fields
             if (data_type == "text" || data_type.contains("char")) 
                 && !col_name.contains("id") 
                 && !col_name.contains("email") 
@@ -98,6 +101,7 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
             });
         }
 
+        // 4. Get Foreign Keys
         let fks = sqlx::query!(
             r#"
             SELECT

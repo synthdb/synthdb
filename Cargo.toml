@@ -1,13 +1,13 @@
 [package]
 name = "synthdb"
-version = "0.1.2" 
+version = "0.1.3"
 edition = "2021"
-description = "Production-grade synthetic data generator for PostgreSQL. Zero config. Single binary."
+description = "The Universal Database Seeder. Production-grade synthetic data generator for PostgreSQL. Zero config, context-aware."
 license = "MIT"
 repository = "https://github.com/synthdb/synthdb"
 homepage = "https://github.com/synthdb/synthdb"
 readme = "README.md"
-keywords = ["database", "postgres", "synthetic-data", "testing", "seeding"]
+keywords = ["database", "postgres", "synthetic-data", "seeding", "testing"]
 categories = ["command-line-utilities", "development-tools::testing"]
 
 [dependencies]
@@ -34,7 +34,6 @@ anyhow = "1.0"
 rand = "0.8"
 rand_distr = "0.4"
 regex = "1.9"
-# Find this line and replace it:
 fake = { version = "2.9", features = ["derive", "random_color"] }
 chrono = "0.4"
 uuid = { version = "1.4", features = ["v4", "fast-rng"] }

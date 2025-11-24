@@ -2,7 +2,13 @@
 name = "synthdb"
 version = "0.1.0"
 edition = "2021"
-
+description = "Production-grade synthetic data generator for PostgreSQL. Zero config. Single binary."
+license = "MIT"
+repository = "https://github.com/synthdb/synthdb"
+homepage = "https://github.com/synthdb/synthdb"
+readme = "README.md"
+keywords = ["database", "postgres", "synthetic-data", "testing", "seeding"]
+categories = ["command-line-utilities", "development-tools::testing"]
 [dependencies]
 # Async Runtime
 tokio = { version = "1.0", features = ["full"] }

@@ -6,10 +6,11 @@ use anyhow::Result;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Column {
     pub name: String,
-    pub data_type: String,
+    pub data_type: String, // "integer", "text", "numeric", "ARRAY"
     pub is_nullable: bool,
-    // NEW: We store sampled values from the real DB
-    pub distinct_values: Vec<String>, 
+    pub numeric_precision: Option<i32>, // Total digits
+    pub numeric_scale: Option<i32>,     // Decimal places
+    pub distinct_values: Vec<String>,   // Sampled data
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -27,7 +28,6 @@ pub struct Table {
 }
 
 pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
-    // 1. Get all tables
     let tables = sqlx::query!(
         "SELECT table_name FROM information_schema.tables 
          WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
@@ -41,9 +41,9 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
         let t_name = t.table_name.unwrap();
         println!("   ...analyzing table: {}", t_name);
 
-        // 2. Get columns
+        // We now fetch numeric_precision and numeric_scale
         let cols_raw = sqlx::query!(
-            "SELECT column_name, data_type, is_nullable 
+            "SELECT column_name, data_type, is_nullable, numeric_precision, numeric_scale, udt_name
              FROM information_schema.columns 
              WHERE table_name = $1 AND table_schema = 'public'
              ORDER BY ordinal_position",
@@ -54,28 +54,35 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
 
         let mut columns = Vec::new();
 
-        // 3. THE SAMPLER: Read real data from the table
         for c in cols_raw {
             let col_name = c.column_name.unwrap();
-            let data_type = c.data_type.unwrap();
+            let mut data_type = c.data_type.unwrap();
+            let udt_name = c.udt_name.unwrap_or_default(); // Detect arrays via udt_name
+            
+            // Detect Array Types (Postgres specific)
+            if udt_name.starts_with('_') {
+                data_type = "ARRAY".to_string();
+            }
+
             let is_nullable = c.is_nullable.unwrap() == "YES";
+            let numeric_precision = c.numeric_precision;
+            let numeric_scale = c.numeric_scale;
 
+            // SAMPLER: Only sample if it makes sense
             let mut distinct_values = Vec::new();
-
-            // Only sample if it's text/keyword and NOT an ID/Primary Key
-            // This detects things like "status", "category", "country"
             if (data_type == "text" || data_type.contains("char")) 
                 && !col_name.contains("id") 
                 && !col_name.contains("email") 
-                && !col_name.contains("name") {
+                && !col_name.contains("name") 
+                && !col_name.contains("url") {
                 
-                // Query distinct values (limit 20)
                 let query = format!("SELECT DISTINCT {} FROM {} LIMIT 20", col_name, t_name);
                 if let Ok(rows) = sqlx::query(&query).fetch_all(pool).await {
                     for row in rows {
-                        // Safely try to get string, ignore nulls
                         if let Ok(val) = row.try_get::<String, _>(0) {
-                            distinct_values.push(val);
+                            if !val.trim().is_empty() {
+                                distinct_values.push(val);
+                            }
                         }
                     }
                 }
@@ -85,11 +92,12 @@ pub async fn extract_schema(pool: &PgPool) -> Result<Vec<Table>> {
                 name: col_name,
                 data_type,
                 is_nullable,
+                numeric_precision,
+                numeric_scale,
                 distinct_values,
             });
         }
 
-        // 4. Get Foreign Keys
         let fks = sqlx::query!(
             r#"
             SELECT

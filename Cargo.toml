@@ -34,6 +34,7 @@ anyhow = "1.0"
 rand = "0.8"
 rand_distr = "0.4"
 regex = "1.9"
-fake = { version = "2.9", features = ["derive"] }
+# Find this line and replace it:
+fake = { version = "2.9", features = ["derive", "random_color"] }
 chrono = "0.4"
 uuid = { version = "1.4", features = ["v4", "fast-rng"] }

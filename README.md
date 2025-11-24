@@ -1,120 +1,115 @@
-# SynthDB 🦀
+# 🦀 SynthDB
 
-> **Production-grade synthetic data generator for PostgreSQL.**
-> **Zero config. Single binary. Referentially Intact.**
+> **Production-grade synthetic data generator for PostgreSQL**  
+> **Zero config. Single binary. Referentially intact.**
 
-[![Rust](https://img.shields.io/badge/built_with-Rust-d33833.svg)](https://www.rust-lang.org/)
+[![Built with Rust](https://img.shields.io/badge/built_with-Rust-d33833.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Open Collective](https://img.shields.io/badge/Sponsor%20us-Open%20Collective-1f87ff.svg)](https://opencollective.com/synthdb)
-
-**SynthDB** is a database seeding engine. It connects to your PostgreSQL database, reads the schema (including foreign keys and types), analyzes the data distribution, and generates statistically realistic synthetic data.
-
-It solves the **"Staging Data Problem"**: How do I get 100k realistic users and orders into my staging environment without copying sensitive production data?
+[![Open Collective](https://img.shields.io/badge/Sponsor-Open%20Collective-1f87ff.svg)](https://opencollective.com/synthdb)
 
 ---
 
-## 🚀 Why SynthDB?
+## 🎯 Overview
 
-Most developers write custom "seeding scripts" using libraries like **Faker.js**. This is slow, brittle, and hard to maintain.
+**SynthDB** generates realistic synthetic data for PostgreSQL databases by reading your schema and producing statistically accurate insert statements — while respecting foreign keys and relational dependencies.
 
-| Feature | Custom Scripts (Faker.js) | SynthDB |
-| :--- | :--- | :--- |
-| **Setup Time** | Hours (Writing loops, defining models) | **Seconds** (1 Command) |
-| **Relationships** | Manual (You must code the logic) | **Automatic** (Topological Sort) |
-| **Realism** | Generic (Random words) | **Sampled** (Reads your actual DB values) |
-| **Performance** | Slow (Node/Python loops) | **Instant** (Rust Native) |
-| **Privacy** | - | **Air-gapped** (Runs locally) |
+It’s designed to solve the **“Staging Data Problem”**:
+> *How do I get realistic 100k+ rows into staging without copying sensitive production data?*
+
+---
+
+## 🚀 Key Features
+
+| Feature | Traditional Seeder Scripts | **SynthDB** |
+|--------|----------------------------|-------------|
+| Setup Time | Hours | **Seconds** |
+| Handles FK Relationships | Manual logic | **Automatic DAG sorting** |
+| Data Distribution | Randomized | **Sampled from real values** |
+| Performance | Slow loops (Node/Python) | **Native Rust speed** |
+| Privacy | Potentially risky | **Air-gapped / local only** |
 
 ---
 
 ## 📦 Installation
 
-Currently, SynthDB is installed from source via Rust/Cargo.
+Currently installable via Cargo:
 
 ```bash
-# 1. Clone the repo
-git clone [https://github.com/YOUR_USERNAME/synthdb.git](https://github.com/YOUR_USERNAME/synthdb.git)
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/synthdb.git
 cd synthdb
 
-# 2. Install globally
+# Install globally
 cargo install --path .
-🛠 usage Guide (The Workflow)
-SynthDB is designed to populate an existing schema with data. It does not create tables; it fills them.
+🛠 Usage Guide
+SynthDB does not create tables — it fills an existing schema.
 
-Scenario: "I want to clone Prod to Staging, but with fake data."
-Step 1: Export your Schema (No Data)
-Get the structure of your production database, but exclude the actual data to preserve privacy.
-
-Bash
-
-# -s means "Schema Only"
+📌 Example Flow: Clone Prod → Staging With Fake Data
+Step 1: Export schema (no data)
+bash
+Copy code
 pg_dump -h prod-db.com -U user -d my_app -s > schema.sql
-Step 2: Create your Local/Staging DB
-Create a clean database and apply the schema.
-
-Bash
-
+Step 2: Create a target database
+bash
+Copy code
 createdb my_staging_db
 psql -d my_staging_db < schema.sql
-Step 3: Run SynthDB
-Point SynthDB at your local/staging database. It will read the table structure and generate the insert statements.
-
-Bash
-
+Step 3: Generate synthetic data
+bash
+Copy code
 synthdb clone \
   --url postgres://user:pass@localhost:5432/my_staging_db \
   --rows 5000 \
   --output seed.sql
-Step 4: Apply the Synthetic Data
-Import the generated SQL file into your staging database.
-
-Bash
-
+Step 4: Apply generated data
+bash
+Copy code
 psql -d my_staging_db < seed.sql
-Result: Your staging database now has 5,000 realistic users, orders, and items, all correctly linked together.
+🎉 Result
+A fully-seeded staging environment with realistic users, orders, items, etc. — all referentially intact.
 
 🧠 How It Works
-1. The "Vibe" Engine (Smart Seeding)
-SynthDB uses heuristics to detect what a column is based on its name:
+1️⃣ Smart Column Heuristics (“Vibe Engine”)
+Column Name	Example Output
+email	jim.halpert@example.com
+phone	+1 402-555-0198
+sku	PROD-4281
+status	active / pending / failed
+created_at	time-decayed timestamps
 
-email → Generates jim.halpert@example.com
+2️⃣ Value Sampling
+Extracts real database distributions automatically, e.g.:
 
-phone → Generates valid phone formats
+sql
+Copy code
+SELECT DISTINCT product_category FROM products;
+3️⃣ Topological Sort
+Builds a dependency graph to seed tables in valid order.
 
-sku → Generates product codes like PROD-4812
-
-status → Picks from common defaults like active, pending
-
-created_at → Generates time-decayed timestamps
-
-2. The "Reader" (Data Sampling)
-If you have a column like product_category, SynthDB queries your DB to find distinct values (e.g., "Electronics", "Home"). It uses these real values in the synthetic data so your app feels authentic.
-
-3. The Sorter (Topological Sort)
-It builds a Directed Acyclic Graph (DAG) of your foreign keys. It guarantees that Users are created before Orders, and Orders before OrderItems, so you never get Foreign Key Violations.
-
-⚠️ Limitations (v0.1 MVP)
-Database Support: Currently supports PostgreSQL only. MySQL and SQLite support is coming in v0.2.
-
-Existing Schema: The target database must already have tables created.
-
-Data Appending: SynthDB generates INSERT statements. It does not TRUNCATE tables first.
+bash
+Copy code
+users → orders → order_items
+⚠️ Limitations (v0.1)
+Capability	Status
+PostgreSQL Support	✅ Available
+MySQL / SQLite	🚧 Coming in v0.2
+Schema must exist	✔ Required
+Generates INSERT only	✔ Does not truncate
 
 🤝 Contributing
-We love pull requests!
+Contributions welcome!
 
-Fork the repo.
+bash
+Copy code
+git checkout -b feature/my-feature
+# commit changes
+git push origin feature/my-feature
+Open a PR and we’ll review quickly.
 
-Create a feature branch.
+💙 Support & Sponsors
+If SynthDB saves you hours of staging setup, consider sponsoring development:
 
-Commit your changes.
-
-Push to the branch and open a PR.
-
-💰 Support the Project
-If this tool saved you time setting up your staging environment, consider supporting our development!
-
-Become a Sponsor on Open Collective
+👉 Open Collective: https://opencollective.com/synthdb
 
 📜 License
-Distributed under the MIT License.
+Distributed under the MIT License — free for commercial and private use.
